@@ -53,12 +53,12 @@ type Aggregator struct {
 }
 
 // Template to use for aggregated results
-const agg = `
-Total lines     {{.Total}}
+const agg = `Total lines     {{.Total}}
 
 Code lines      {{.Code}} / {{.CodeS | printf "%.2f"}}%
 Comments        {{.Comment}} / {{.CommentS | printf "%.2f"}}%
 Blank lines     {{.Blank}} / {{.BlankS | printf "%.2f"}}%
+
 `
 
 // Yemplate to use for results per file
