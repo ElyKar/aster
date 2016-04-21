@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Flags
 var (
 	dir       string
 	extension string
@@ -18,6 +19,7 @@ var (
 	aggregate bool
 )
 
+// A struct to display info about a file
 type Stats struct {
 	Code     int
 	Comment  int
@@ -28,23 +30,29 @@ type Stats struct {
 	BlankS   float64
 }
 
+// Initialize a new Stats struct
 func newStats(code, comment, blank int) *Stats {
 	total := code + comment + blank
+	if total == 0 {
+		total = 1
+	}
 	return &Stats{
 		code,
 		comment,
 		blank,
-		total,
+		code + comment + blank,
 		float64(code) / float64(total) * 100,
 		float64(comment) / float64(total) * 100,
 		float64(blank) / float64(total) * 100,
 	}
 }
 
+// Stores the temporary results here
 type Aggregator struct {
 	Data map[string]*Stats
 }
 
+// Template to use for aggregated results
 const agg = `
 Total lines     {{.Total}}
 
@@ -53,10 +61,12 @@ Comments        {{.Comment}} / {{.CommentS | printf "%.2f"}}%
 Blank lines     {{.Blank}} / {{.BlankS | printf "%.2f"}}%
 `
 
+// Yemplate to use for results per file
 const split = `
 {{range $key, $value := .Data}}{{$key}} : Total {{$value.Total}} ; Code {{$value.Code}}({{$value.CodeS | printf "%.2f"}}%) ; Comments {{$value.Comment}}({{$value.CommentS | printf "%.2f"}}%) ; Blank {{$value.Blank}}({{$value.BlankS | printf "%.2f"}}%)
 {{else}}{{end}}`
 
+// Cobra root command
 var rootCmd = &cobra.Command{
 	Use:   "aster [flags] file1 file2 ...",
 	Short: "aster is a command-line tool to count the number of blank lines, comments or code lines in a set of files",
@@ -112,6 +122,7 @@ func main() {
 
 }
 
+// Bind the flags
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&dir, "exclude-dirs", "d", "", "exclude the list of comma-separated extensions, used with recursive search")
 	rootCmd.PersistentFlags().StringVarP(&extension, "extension", "e", "", "search in all the files with this list of comma-separated extensions")
@@ -119,6 +130,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursively search all the files in this sub-directory (do not follow symbolic links, do not recognize subtrees)")
 }
 
+// Really want an explanation here ?
 func contains(s []string, elt string) bool {
 	for _, e := range s {
 		if strings.EqualFold(e, elt) {
@@ -128,7 +140,12 @@ func contains(s []string, elt string) bool {
 	return false
 }
 
+// Function for evaluating if a file is interesting
 func walkFn(filename string, extensions []string, a *Aggregator) {
+	info, _ := os.Stat(filename)
+	if info.IsDir() {
+		return
+	}
 	for _, ext := range extensions {
 		if ext == "" || strings.HasSuffix(filename, "."+ext) {
 			a.Data[filename] = newStats(visitFile(filename))
@@ -136,6 +153,7 @@ func walkFn(filename string, extensions []string, a *Aggregator) {
 	}
 }
 
+// Parse a file
 func visitFile(filename string) (code int, comment int, blank int) {
 	content, _ := ioutil.ReadFile(filename)
 	stringContent := string(content)
@@ -164,6 +182,8 @@ func visitFile(filename string) (code int, comment int, blank int) {
 		}
 
 	}
-	blank -= 1 // The counted as blank
+	if blank != 0 {
+		blank -= 1
+	} // The counted as blank
 	return
 }
