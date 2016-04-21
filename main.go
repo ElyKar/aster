@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -69,11 +70,17 @@ var rootCmd = &cobra.Command{
 		extensions := strings.Split(extension, ",")
 
 		for _, filename := range args {
-			for _, ext := range extensions {
-				if ext == "" || strings.HasSuffix(filename, "."+ext) {
-					a.Data[filename] = newStats(visitFile(filename))
-				}
+			if recursive {
+				filepath.Walk(filename, func(filename string, info os.FileInfo, err error) error {
+					if !info.IsDir() {
+						walkFn(filename, extensions, a)
+					}
+					return nil
+				})
+			} else {
+				walkFn(filename, extensions, a)
 			}
+
 		}
 
 		if aggregate {
@@ -104,10 +111,18 @@ func main() {
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&extension, "extension", "e", "", "search in all the files with this list of comma-separated extensions")
 	rootCmd.PersistentFlags().BoolVarP(&aggregate, "aggregate", "a", false, "aggregate all the results, display info for each file by default")
-	rootCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursively search all the files in this sub-directory (do not follow symbolic links)")
+	rootCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursively search all the files in this sub-directory (do not follow symbolic links, do not recognize subtrees)")
 }
 
-func visitFile(filename string) (blank int, comment int, code int) {
+func walkFn(filename string, extensions []string, a *Aggregator) {
+	for _, ext := range extensions {
+		if ext == "" || strings.HasSuffix(filename, "."+ext) {
+			a.Data[filename] = newStats(visitFile(filename))
+		}
+	}
+}
+
+func visitFile(filename string) (code int, comment int, blank int) {
 	content, _ := ioutil.ReadFile(filename)
 	stringContent := string(content)
 	comment, blank, code = 0, 0, 0
@@ -115,7 +130,7 @@ func visitFile(filename string) (blank int, comment int, code int) {
 	state := false
 
 	for _, line := range lines {
-		line = strings.TrimLeft(line, " \t")
+		line = strings.TrimSpace(line)
 		if state {
 			if strings.HasSuffix(line, "*/") {
 				state = false
