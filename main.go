@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	dir       string
 	extension string
 	recursive bool
 	aggregate bool
@@ -68,12 +69,15 @@ var rootCmd = &cobra.Command{
 
 		a := &Aggregator{make(map[string]*Stats)}
 		extensions := strings.Split(extension, ",")
+		dirs := strings.Split(dir, ",")
 
 		for _, filename := range args {
 			if recursive {
 				filepath.Walk(filename, func(filename string, info os.FileInfo, err error) error {
 					if !info.IsDir() {
 						walkFn(filename, extensions, a)
+					} else if contains(dirs, filename) {
+						return filepath.SkipDir
 					}
 					return nil
 				})
@@ -109,9 +113,19 @@ func main() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&dir, "exclude-dirs", "d", "", "exclude the list of comma-separated extensions, used with recursive search")
 	rootCmd.PersistentFlags().StringVarP(&extension, "extension", "e", "", "search in all the files with this list of comma-separated extensions")
 	rootCmd.PersistentFlags().BoolVarP(&aggregate, "aggregate", "a", false, "aggregate all the results, display info for each file by default")
 	rootCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "r", false, "recursively search all the files in this sub-directory (do not follow symbolic links, do not recognize subtrees)")
+}
+
+func contains(s []string, elt string) bool {
+	for _, e := range s {
+		if strings.EqualFold(e, elt) {
+			return true
+		}
+	}
+	return false
 }
 
 func walkFn(filename string, extensions []string, a *Aggregator) {
