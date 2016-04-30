@@ -142,7 +142,11 @@ func contains(s []string, elt string) bool {
 
 // Function for evaluating if a file is interesting
 func walkFn(filename string, extensions []string, a *Aggregator) {
-	info, _ := os.Stat(filename)
+	info, err := os.Stat(filename)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Warning, couldn't process file %s : %s", filename, err.Error()))
+		return
+	}
 	if info.IsDir() {
 		return
 	}
